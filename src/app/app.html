@@ -1,1 +1,20 @@
-<ion-nav [root]="rootPage"></ion-nav>
+<ng-container *ngIf="ready">
+
+  <ion-menu [content]="content">
+    <ion-header>
+      <ion-title>Menu</ion-title>
+    </ion-header>
+    <ion-content>
+      <ion-list>
+        <ng-container *ngFor="let link of links$ | async">
+          <button ion-item *ngIf="link.sideMenu.show" menuClose (click)="goto(link)">
+            <span item-start>{{ link.sideMenu.name }}</span>
+            <ion-icon item-end name="{{ link.sideMenu.icon }}"></ion-icon>
+          </button>
+        </ng-container>
+      </ion-list>
+    </ion-content>
+  </ion-menu>
+  <ion-nav #content [root]="rootPage"></ion-nav>
+
+</ng-container>

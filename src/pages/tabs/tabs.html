@@ -1,0 +1,16 @@
+<!--
+  Generated template for the TabsPage page.
+
+  See http://ionicframework.com/docs/components/#navigation for more info on
+  Ionic pages and navigation.
+-->
+<ng-container *ngIf="(links$ | async) as links">
+  <ion-tabs>
+    <ion-tab *ngFor="let link of links"
+      [show]="link.tabs.show"
+      [root]="map[link.page]"
+      [tabTitle]="link.tabs.name"
+      [tabIcon]="link.tabs.icon"
+    ></ion-tab>
+  </ion-tabs>
+</ng-container>
