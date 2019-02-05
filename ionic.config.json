@@ -1,0 +1,7 @@
+{
+  "name": "ionic-ngrx-starter",
+  "integrations": {
+    "cordova": {}
+  },
+  "type": "ionic-angular"
+}
