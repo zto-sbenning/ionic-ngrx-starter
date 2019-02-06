@@ -20,7 +20,7 @@ export class StorageProvider {
     return Observable.defer(() => {
       return Observable.fromPromise(this.storage.ready()).pipe(
         switchMap(() => Observable.timer(2500).pipe(
-          switchMap(() => Math.random() < 0.5
+          switchMap(() => Math.random() < 0.3
             ? Observable.throw(new Error('Random Error'))
             : Observable.of(0)
           )

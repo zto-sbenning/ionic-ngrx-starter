@@ -2,9 +2,11 @@ import { Injectable } from '@angular/core';
 import { createSelector, select, Store } from '@ngrx/store';
 import { Actions, Effect, ofType } from '@ngrx/effects';
 import { Observable } from 'rxjs';
-import { tap, filter, map, skip, distinctUntilChanged } from 'rxjs/operators';
+import { tap, filter, map, skip, distinctUntilChanged, switchMap, catchError, mergeMap, first, takeUntil } from 'rxjs/operators';
 import { Message, RequestMessage, ResponseMessage } from '../models/message';
 import { LoadingController, ToastController, AlertController, Loading, Alert, Toast } from 'ionic-angular';
+import { LoadRequestStorage, StorageActionType, LoadResponseStorage } from './storage.store';
+import { SetRootNav } from './nav.store';
 
 export interface AppState {
   firstUse: boolean;
@@ -50,7 +52,9 @@ export enum AppActionType {
   startLoading = '[App] Start Loading',
   stopLoading = '[App] Stop Loading',
   setError = '[App] Set Error',
-  clearError = '[App] Clear Error'
+  clearError = '[App] Clear Error',
+  initializeRequest = '[App] Initialize Request',
+  initializeResponse = '[App] Initialize Response',
 }
 
 export class SetFirstUseApp extends Message<{ firstUse: boolean }> {
@@ -68,11 +72,17 @@ export class StartLoadingApp extends Message<{
 export class StopLoadingApp extends Message<void> {
   type = AppActionType.stopLoading;
 }
-export class SetErrorApp extends Message<{ error: Error }> {
+export class SetErrorApp extends ResponseMessage<{ error: Error }> {
   type = AppActionType.setError;
 }
 export class ClearErrorApp extends Message<void> {
   type = AppActionType.clearError;
+}
+export class InitializeRequestApp extends RequestMessage<void> {
+  type = AppActionType.initializeRequest;
+}
+export class InitializeResponseApp extends ResponseMessage<void> {
+  type = AppActionType.initializeResponse;
 }
 
 export type AppActions =
@@ -81,7 +91,9 @@ export type AppActions =
   | StartLoadingApp
   | StopLoadingApp
   | SetErrorApp
-  | ClearErrorApp;
+  | ClearErrorApp
+  | InitializeRequestApp
+  | InitializeResponseApp;
 
 export function appStateReducer(
   state: AppState = initialAppState,
@@ -137,6 +149,8 @@ export function appStateReducer(
       };
     }
 
+    case AppActionType.initializeRequest:
+    case AppActionType.initializeResponse:
     default:
       return state;
   }
@@ -167,6 +181,9 @@ export class AppFacade {
   }
   clearError() {
     this.store.dispatch(new ClearErrorApp());
+  }
+  initializeRequest() {
+    this.store.dispatch(new InitializeRequestApp());
   }
 }
 
@@ -224,15 +241,30 @@ export class AppEffects {
       console.log('AppEffects@clearError: ', clearError)
     )
   );
+  @Effect({ dispatch: false })
+  initializeRequest$ = this.actions$.pipe(
+    ofType(AppActionType.initializeRequest),
+    tap((initializeRequest: InitializeRequestApp) =>
+      console.log('AppEffects@initializeRequest: ', initializeRequest)
+    )
+  );
+  @Effect({ dispatch: false })
+  initializeResponse$ = this.actions$.pipe(
+    ofType(AppActionType.initializeResponse),
+    tap((initializeResponse: InitializeResponseApp) =>
+      console.log('AppEffects@initializeResponse: ', initializeResponse)
+    )
+  );
+
   @Effect()
   startLoadingViewRef$ = this.actions$.pipe(
     filter((request: RequestMessage) => request.startLoading === true),
-    map((request: RequestMessage) => new StartLoadingApp())
+    map((request: RequestMessage) => new StartLoadingApp(undefined, request.correlationId))
   );
   @Effect()
   stopLoadingViewRef$ = this.actions$.pipe(
     filter((response: ResponseMessage) => response.stopLoading === true),
-    map((response: ResponseMessage) => new StopLoadingApp())
+    map((response: ResponseMessage) => new StopLoadingApp(undefined, response.correlationId))
   );
   @Effect({ dispatch: false })
   toggleLoadingView$ = this.appFacade.loading$.pipe(
@@ -259,6 +291,44 @@ export class AppEffects {
       });
       this.currentAlrt.present();
       this.currentAlrt.onDidDismiss(() => this.currentAlrt = undefined);
+    })
+  );
+  @Effect()
+  initializeRequestSE$ = this.actions$.pipe(
+    ofType(AppActionType.initializeRequest),
+    switchMap((initializeRequest: InitializeRequestApp) => {
+      const requests = [
+        Observable.of(new LoadRequestStorage(undefined, initializeRequest.correlationId)),
+      ];
+      const responses = [
+        this.actions$.pipe(
+          ofType(StorageActionType.loadResponse, AppActionType.setError),
+          filter((response: LoadResponseStorage | SetErrorApp) => response.correlationId === initializeRequest.correlationId),
+          first(),
+          switchMap<Message, Message>((response: LoadResponseStorage | SetErrorApp) => response.type === AppActionType.setError
+            ? Observable.of(response)
+            : Observable.concat(
+              (response as LoadResponseStorage).payload.entries.APP_FIRST_USE === false
+                ? Observable.of(new SetRootNav({ page: 'HOME' }))
+                : Observable.of(new SetRootNav({ page: 'FIRSTUSE' })),
+            ).pipe(tap(console.log)),
+          )
+        ),
+      ];
+      return Observable.concat(...requests, Observable.zip(...responses).pipe(
+        mergeMap((results: ResponseMessage[]) => {
+          console.log(results);
+          const error = results.find(result => result.type === AppActionType.setError);
+          return (!error
+            ? [
+              new InitializeResponseApp(undefined, initializeRequest.correlationId),
+              new SetReadyApp({ ready: true }, initializeRequest.correlationId),
+            ]
+            : [
+              new InitializeResponseApp(undefined, initializeRequest.correlationId),
+            ]) as Message[];
+        })
+      ));
     })
   );
 }

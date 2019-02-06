@@ -226,4 +226,28 @@ export class StorageEffects {
       catchError((error: Error) => Observable.of(new SetErrorApp({ error }, loadRequest.correlationId)))
     ))
   );
+  @Effect()
+  saveRequestSE$ = this.actions$.pipe(
+    ofType(StorageActionType.saveRequest),
+    switchMap((saveRequest: SaveRequestStorage) => this.storage.save(saveRequest.payload.entries).pipe(
+      map(() => new SaveResponseStorage({ entries: saveRequest.payload.entries }, saveRequest.correlationId)),
+      catchError((error: Error) => Observable.of(new SetErrorApp({ error }, saveRequest.correlationId)))
+    ))
+  );
+  @Effect()
+  removeRequestSE$ = this.actions$.pipe(
+    ofType(StorageActionType.removeRequest),
+    switchMap((removeRequest: RemoveRequestStorage) => this.storage.remove(removeRequest.payload.keys).pipe(
+      map(() => new RemoveResponseStorage({ keys: removeRequest.payload.keys }, removeRequest.correlationId)),
+      catchError((error: Error) => Observable.of(new SetErrorApp({ error }, removeRequest.correlationId)))
+    ))
+  );
+  @Effect()
+  clearRequestSE$ = this.actions$.pipe(
+    ofType(StorageActionType.clearRequest),
+    switchMap((clearRequest: ClearRequestStorage) => this.storage.clear().pipe(
+      map(() => new ClearResponseStorage(undefined, clearRequest.correlationId)),
+      catchError((error: Error) => Observable.of(new SetErrorApp({ error }, clearRequest.correlationId)))
+    ))
+  );
 }

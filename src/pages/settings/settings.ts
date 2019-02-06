@@ -38,7 +38,7 @@ export class SettingsPage {
   }
 
   load() {
-    this.storageFacade.loadRequest();
+    this.storageFacade.loadRequest({ keys: undefined });
   }
 
 }

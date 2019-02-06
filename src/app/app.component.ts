@@ -32,8 +32,10 @@ export class MyApp {
       () => Observable.fromPromise(platform.ready())
     );
 
+    this.appFacade.initializeRequest();
+
     platformReady$.pipe(
-      tap(() => this.appFacade.setReady({ ready: true })),
+      // tap(() => this.appFacade.setReady({ ready: true })),
       switchMap(() => this.appFacade.ready$.pipe(
         tap((ready: boolean) => this.ready = ready),
         filter((ready: boolean) => ready === true),
